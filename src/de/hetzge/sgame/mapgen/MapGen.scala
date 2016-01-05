@@ -88,22 +88,19 @@ object TileDefinition {
   val EMPTY = TileDefinition("OOOOOOOOO")
   val CENTER = TileDefinition("OOOOXOOOO")
 
-  // TODO zusammenfassen
   val TOP = TileDefinition("XXXOOOOOO", "XXOOOOOOO", "OXXOOOOOO", "OXOOOOOOO")
   val BOTTOM = TOP.copy(2)
   val LEFT = TOP.copy(1)
   val RIGHT = TOP.copy(3)
 
-  // TODO zusammenfassen
   val LEFT_TOP = TileDefinition("XOOOOOOOO")
   val RIGHT_TOP = LEFT_TOP.copy(3)
   val LEFT_BOTTOM = LEFT_TOP.copy(1)
   val RIGHT_BOTTOM = LEFT_TOP.copy(2)
 
-  // TODO zusammenfassen
   val CORNER_BOTTOM_RIGHT = TileDefinition("XXXXOOXOO", "XXOXOOXOO", "XXOXOOOOO", "XXXXOOOOO")
-  val CORNER_TOP_RIGHT = CORNER_BOTTOM_RIGHT.copy(2)
-  val CORNER_TOP_LEFT = CORNER_BOTTOM_RIGHT.copy(1)
+  val CORNER_TOP_RIGHT = CORNER_BOTTOM_RIGHT.copy(1)
+  val CORNER_TOP_LEFT = CORNER_BOTTOM_RIGHT.copy(2)
   val CORNER_BOTTOM_LEFT = CORNER_BOTTOM_RIGHT.copy(3)
 
   val ALL = Array(FULL, EMPTY, CENTER, TOP, BOTTOM, LEFT, RIGHT, LEFT_TOP, RIGHT_TOP, LEFT_BOTTOM, RIGHT_BOTTOM,
@@ -245,7 +242,7 @@ class Generator(val config: GeneratorConfiguration) {
 
       println("----------")
 
-      for (i <- 0 to 25) {
+      for (i <- 0 to 100) {
         val randomX = (Math.random() * width).toInt
         val randomY = (Math.random() * height).toInt
         iterate(randomX, randomY, 25, index => {
@@ -255,7 +252,7 @@ class Generator(val config: GeneratorConfiguration) {
           } else {
             false
           }
-        }, 0.5d)
+        }, 0.8d)
       }
 
       // clean grounds
@@ -266,24 +263,6 @@ class Generator(val config: GeneratorConfiguration) {
         }
       }
 
-      // test
-      ground(indexer.index(10, 10)) = config.primaryTileSet.groundRule.to
-      ground(indexer.index(11, 10)) = config.primaryTileSet.groundRule.to
-      ground(indexer.index(12, 10)) = config.primaryTileSet.groundRule.to
-
-      ground(indexer.index(10, 11)) = config.primaryTileSet.groundRule.to
-      ground(indexer.index(11, 11)) = config.primaryTileSet.groundRule.to
-      ground(indexer.index(12, 11)) = config.primaryTileSet.groundRule.to
-
-      ground(indexer.index(10, 12)) = config.primaryTileSet.groundRule.to
-      ground(indexer.index(11, 12)) = config.primaryTileSet.groundRule.to
-      ground(indexer.index(12, 12)) = config.primaryTileSet.groundRule.to
-      //      val bla = resolveTileDefinition(config.primaryTileSet, indexer.index(11, 11))
-      //      bla match {
-      //        case Some(tileDefinition) => tileDefinition.fields.foreach(println)
-      //        case None => println("leider nichts")
-      //      }
-
       // set result
       for (index <- result.indices) {
         if (tileSet.groundRule.to == ground(index)) {
@@ -293,15 +272,6 @@ class Generator(val config: GeneratorConfiguration) {
             case None => result(index) = 111
           }
         }
-
-        // TODO TEMP
-        //        if (result(index) != 10) {
-        //          if (ground(index) == tileSet.groundRule.from) {
-        //            result(index) = tileSet.mapping(TileDefinition.FULL)
-        //          } else if (ground(index) == tileSet.groundRule.to) {
-        //            result(index) = tileSet.mapping(TileDefinition.EMPTY)
-        //          }
-        //        }
       }
 
     }
@@ -310,7 +280,7 @@ class Generator(val config: GeneratorConfiguration) {
   }
 
   def resolveTileDefinition(tileSet: TileSet, index: Int): Option[TileDefinition] = {
-    resolveTileDefinition0(tileSet, index) // .orElse(resolveAlternativeTile(tileSet, index))
+    resolveTileDefinition0(tileSet, index).orElse(resolveAlternativeTile(tileSet, index))
   }
 
   def resolveAlternativeTile(tileSet: TileSet, index: Int): Option[TileDefinition] = {
@@ -348,35 +318,24 @@ class Generator(val config: GeneratorConfiguration) {
     }.orElse(resolveTileDefinition0(tileSet, index, level + 1))
   }
 
-  //  TileDefinition.PRIMARY.toLower == field
-
   def checkAround(index: Int, groundRule: GroundRule): Boolean = {
-    val (x, y) = indexer.unIndex(index)
     Orientation.COMPLEX.forall { orientation =>
-      val nextX = x + orientation.xOffset
-      val nextY = y + orientation.yOffset
-      if (nextX >= 0 && nextX < width && nextY >= 0 && nextY < height) {
-        val nextIndex = indexer.index(nextX, nextY)
-        ground(nextIndex) == groundRule.from || ground(nextIndex) == groundRule.to
-      } else {
-        true
+      val nextIndexOption = indexer.around(orientation, index)
+      nextIndexOption match {
+        case Some(nextIndex) => ground(nextIndex) == groundRule.from || ground(nextIndex) == groundRule.to
+        case None => false // this controls if the fields goes over the map border
       }
     }
   }
 
   def checkAround3Rule(index: Int): Boolean = {
-    val (x, y) = indexer.unIndex(index)
     val currentGround = ground(index)
     Orientation.EDGES.exists { orientations =>
       orientations.forall { orientation =>
-        val nextX = x + orientation.xOffset
-        val nextY = y + orientation.yOffset
-        if (nextX >= 0 && nextX < width && nextY >= 0 && nextY < height) {
-          val nextIndex = indexer.index(nextX, nextY)
-          val nextGround = ground(nextIndex)
-          nextGround == currentGround
-        } else {
-          true
+        val nextIndexOption = indexer.around(orientation, index)
+        nextIndexOption match {
+          case Some(nextIndex) => ground(nextIndex) == currentGround
+          case None => true
         }
       }
     }
